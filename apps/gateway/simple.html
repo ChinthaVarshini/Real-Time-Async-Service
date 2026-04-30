@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Task Dashboard - Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #3730a3;
+        }
+        .button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .input {
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px;
+            width: 300px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected {
+            background: #065f46;
+            color: #10b981;
+        }
+        .status.disconnected {
+            background: #7f1d1d;
+            color: #ef4444;
+        }
+        .log {
+            background: #111;
+            padding: 15px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Async Task Dashboard - Simple Test</h1>
+        
+        <div class="section">
+            <h2>Connection Status</h2>
+            <div id="status" class="status disconnected">Disconnected</div>
+            <input type="text" id="token" class="input" placeholder="Enter JWT token" />
+            <button id="connect" class="button">Connect</button>
+            <button id="disconnect" class="button" disabled>Disconnect</button>
+        </div>
+        
+        <div class="section">
+            <h2>Test Actions</h2>
+            <button id="testFile" class="button" disabled>Test File Upload</button>
+            <button id="testEmail" class="button" disabled>Test Email Task</button>
+        </div>
+        
+        <div class="section">
+            <h2>Event Log</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        let dashboard = null;
+        
+        // DOM elements
+        const statusEl = document.getElementById('status');
+        const tokenEl = document.getElementById('token');
+        const connectBtn = document.getElementById('connect');
+        const disconnectBtn = document.getElementById('disconnect');
+        const testFileBtn = document.getElementById('testFile');
+        const testEmailBtn = document.getElementById('testEmail');
+        const logEl = document.getElementById('log');
+        
+        // Logging
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.style.color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#94a3b8';
+            entry.textContent = `[${time}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        // Update UI state
+        function updateUI(connected) {
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                testFileBtn.disabled = false;
+                testEmailBtn.disabled = false;
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                testFileBtn.disabled = true;
+                testEmailBtn.disabled = true;
+            }
+        }
+        
+        // Initialize dashboard
+        async function init() {
+            try {
+                // Import dashboard dynamically to catch any import errors
+                const { Dashboard } = await import('./dist/index.js');
+                
+                dashboard = new Dashboard({
+                    websocket: {
+                        url: 'ws://localhost:4001/ws',
+                        reconnectInterval: 3000,
+                        maxReconnectAttempts: 5,
+                        heartbeatInterval: 30000
+                    }
+                });
+                
+                await dashboard.initialize();
+                log('Dashboard initialized successfully', 'success');
+                
+                // Setup event listeners
+                const wsManager = dashboard.getWebSocketManager();
+                
+                wsManager.onConnection((event) => {
+                    log(`Connection ${event.type}: ${event.message}`, 
+                        event.type === 'connected' ? 'success' : 
+                        event.type === 'error' ? 'error' : 'info');
+                    updateUI(event.type === 'connected');
+                });
+                
+                wsManager.onMessage((message) => {
+                    log(`Received: ${message.method || 'response'}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`Failed to initialize: ${error.message}`, 'error');
+                console.error('Dashboard initialization error:', error);
+            }
+        }
+        
+        // Event handlers
+        connectBtn.addEventListener('click', async () => {
+            const token = tokenEl.value.trim();
+            if (!token) {
+                log('Please enter a JWT token', 'error');
+                return;
+            }
+            
+            try {
+                connectBtn.disabled = true;
+                await dashboard.connect(token);
+            } catch (error) {
+                log(`Connection failed: ${error.message}`, 'error');
+                connectBtn.disabled = false;
+            }
+        });
+        
+        disconnectBtn.addEventListener('click', () => {
+            dashboard.disconnect();
+        });
+        
+        testFileBtn.addEventListener('click', async () => {
+            try {
+                const fileManager = dashboard.getFileUploadManager();
+                
+                // Create a test file
+                const testFile = new File(['Hello World'], 'test.txt', { type: 'text/plain' });
+                fileManager.addFiles([testFile]);
+                
+                await fileManager.uploadFiles();
+                log('Test file uploaded successfully', 'success');
+                
+            } catch (error) {
+                log(`File upload failed: ${error.message}`, 'error');
+            }
+        });
+        
+        testEmailBtn.addEventListener('click', async () => {
+            try {
+                const emailManager = dashboard.getEmailTaskManager();
+                
+                emailManager.addRecipients(['test@example.com']);
+                emailManager.setSubject('Test Email');
+                emailManager.setBody('This is a test email from the dashboard.');
+                
+                await emailManager.queueEmailTask();
+                log('Test email queued successfully', 'success');
+                
+                emailManager.clearAll();
+                
+            } catch (error) {
+                log(`Email queue failed: ${error.message}`, 'error');
+            }
+        });
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

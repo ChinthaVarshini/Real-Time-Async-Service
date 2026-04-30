@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Task Dashboard - Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #6366f1;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        
+        .demo-section {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #334155;
+        }
+        
+        .demo-section h2 {
+            color: #f1f5f9;
+            margin-bottom: 16px;
+            font-size: 1.3rem;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .status-connected {
+            background: #065f46;
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+        
+        .status-disconnected {
+            background: #7f1d1d;
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+        
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .button:hover {
+            background: #4f46e5;
+        }
+        
+        .button:disabled {
+            background: #374151;
+            cursor: not-allowed;
+        }
+        
+        .input {
+            background: #374151;
+            border: 1px solid #4b5563;
+            color: #f9fafb;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .log-area {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 16px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+        }
+        
+        .log-info { color: #94a3b8; }
+        .log-success { color: #10b981; }
+        .log-error { color: #ef4444; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Async Task Dashboard</h1>
+            <p>Real-time WebSocket Dashboard Example</p>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🔌 Connection Status</h2>
+            <div id="connectionStatus" class="status-indicator status-disconnected">
+                <div class="dot"></div>
+                <span>Disconnected</span>
+            </div>
+            <div style="margin-top: 16px;">
+                <input type="text" id="tokenInput" class="input" placeholder="Enter JWT token..." />
+                <button id="connectBtn" class="button">Connect</button>
+                <button id="disconnectBtn" class="button" disabled>Disconnect</button>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="demo-section">
+                <h2>📁 File Upload Manager</h2>
+                <p style="color: #94a3b8; margin-bottom: 16px;">
+                    Supported formats: PDF, Images, Video, CSV, Excel, ZIP
+                </p>
+                <input type="file" id="fileInput" multiple style="margin-bottom: 12px;" />
+                <div>
+                    <button id="uploadBtn" class="button" disabled>Upload Files</button>
+                    <button id="clearFilesBtn" class="button" disabled>Clear</button>
+                </div>
+                <div id="fileList" style="margin-top: 12px; color: #94a3b8;"></div>
+            </div>
+            
+            <div class="demo-section">
+                <h2>📧 Email Task Manager</h2>
+                <input type="text" id="recipientsInput" class="input" placeholder="Recipients (comma-separated)" />
+                <input type="text" id="subjectInput" class="input" placeholder="Subject" />
+                <textarea id="bodyInput" class="input" placeholder="Message body" rows="3"></textarea>
+                <button id="sendEmailBtn" class="button" disabled>Queue Email Task</button>
+                <div id="emailStatus" style="margin-top: 12px; color: #94a3b8;"></div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>📋 Event Log</h2>
+            <div id="logArea" class="log-area"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the dashboard from the built bundle
+        import { Dashboard } from './dist/index.js'
+        
+        // Initialize dashboard
+        const dashboard = new Dashboard({
+            websocket: {
+                url: 'ws://localhost:4000/ws',
+                reconnectInterval: 3000,
+                maxReconnectAttempts: 5,
+                heartbeatInterval: 30000
+            }
+        })
+        
+        // DOM elements
+        const connectionStatus = document.getElementById('connectionStatus')
+        const tokenInput = document.getElementById('tokenInput')
+        const connectBtn = document.getElementById('connectBtn')
+        const disconnectBtn = document.getElementById('disconnectBtn')
+        const fileInput = document.getElementById('fileInput')
+        const uploadBtn = document.getElementById('uploadBtn')
+        const clearFilesBtn = document.getElementById('clearFilesBtn')
+        const fileList = document.getElementById('fileList')
+        const recipientsInput = document.getElementById('recipientsInput')
+        const subjectInput = document.getElementById('subjectInput')
+        const bodyInput = document.getElementById('bodyInput')
+        const sendEmailBtn = document.getElementById('sendEmailBtn')
+        const emailStatus = document.getElementById('emailStatus')
+        const logArea = document.getElementById('logArea')
+        
+        // Logging function
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString()
+            const entry = document.createElement('div')
+            entry.className = `log-entry log-${type}`
+            entry.textContent = `[${timestamp}] ${message}`
+            logArea.appendChild(entry)
+            logArea.scrollTop = logArea.scrollHeight
+        }
+        
+        // Initialize dashboard
+        async function init() {
+            try {
+                await dashboard.initialize()
+                log('Dashboard initialized successfully', 'success')
+                
+                // Setup event listeners
+                setupEventListeners()
+                
+            } catch (error) {
+                log(`Failed to initialize dashboard: ${error.message}`, 'error')
+            }
+        }
+        
+        function setupEventListeners() {
+            const wsManager = dashboard.getWebSocketManager()
+            const fileManager = dashboard.getFileUploadManager()
+            const emailManager = dashboard.getEmailTaskManager()
+            
+            // WebSocket connection events
+            wsManager.onConnection((event) => {
+                log(`Connection ${event.type}: ${event.message}`, 
+                    event.type === 'connected' ? 'success' : 
+                    event.type === 'error' ? 'error' : 'info')
+                
+                updateConnectionUI(event.type === 'connected')
+            })
+            
+            // WebSocket messages
+            wsManager.onMessage((message) => {
+                log(`Received: ${message.method || 'response'}`, 'info')
+            })
+            
+            // Connect button
+            connectBtn.addEventListener('click', async () => {
+                const token = tokenInput.value.trim()
+                if (!token) {
+                    log('Please enter a JWT token', 'error')
+                    return
+                }
+                
+                try {
+                    connectBtn.disabled = true
+                    await dashboard.connect(token)
+                } catch (error) {
+                    log(`Connection failed: ${error.message}`, 'error')
+                    connectBtn.disabled = false
+                }
+            })
+            
+            // Disconnect button
+            disconnectBtn.addEventListener('click', () => {
+                dashboard.disconnect()
+            })
+            
+            // File input
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files)
+                fileManager.clearFiles()
+                fileManager.addFiles(files)
+                updateFileUI()
+            })
+            
+            // Upload button
+            uploadBtn.addEventListener('click', async () => {
+                try {
+                    await fileManager.uploadFiles()
+                    log(`Uploaded ${fileManager.getFileCount()} files`, 'success')
+                } catch (error) {
+                    log(`Upload failed: ${error.message}`, 'error')
+                }
+            })
+            
+            // Clear files button
+            clearFilesBtn.addEventListener('click', () => {
+                fileManager.clearFiles()
+                fileInput.value = ''
+                updateFileUI()
+            })
+            
+            // Send email button
+            sendEmailBtn.addEventListener('click', async () => {
+                try {
+                    const recipients = recipientsInput.value.split(',').map(s => s.trim()).filter(s => s)
+                    emailManager.addRecipients(recipients)
+                    emailManager.setSubject(subjectInput.value)
+                    emailManager.setBody(bodyInput.value)
+                    
+                    await emailManager.queueEmailTask()
+                    log(`Queued email to ${recipients.length} recipients`, 'success')
+                    
+                    // Clear form
+                    recipientsInput.value = ''
+                    subjectInput.value = ''
+                    bodyInput.value = ''
+                    emailManager.clearAll()
+                    updateEmailUI()
+                    
+                } catch (error) {
+                    log(`Email queue failed: ${error.message}`, 'error')
+                }
+            })
+            
+            // Input validation
+            recipientsInput.addEventListener('input', updateEmailUI)
+            subjectInput.addEventListener('input', updateEmailUI)
+            bodyInput.addEventListener('input', updateEmailUI)
+        }
+        
+        function updateConnectionUI(connected) {
+            if (connected) {
+                connectionStatus.className = 'status-indicator status-connected'
+                connectionStatus.innerHTML = '<div class="dot"></div><span>Connected</span>'
+                connectBtn.disabled = true
+                disconnectBtn.disabled = false
+                uploadBtn.disabled = false
+                sendEmailBtn.disabled = false
+            } else {
+                connectionStatus.className = 'status-indicator status-disconnected'
+                connectionStatus.innerHTML = '<div class="dot"></div><span>Disconnected</span>'
+                connectBtn.disabled = false
+                disconnectBtn.disabled = true
+                uploadBtn.disabled = true
+                sendEmailBtn.disabled = true
+            }
+        }
+        
+        function updateFileUI() {
+            const fileManager = dashboard.getFileUploadManager()
+            const count = fileManager.getFileCount()
+            
+            if (count > 0) {
+                fileList.textContent = `${count} file(s) selected`
+                clearFilesBtn.disabled = false
+            } else {
+                fileList.textContent = 'No files selected'
+                clearFilesBtn.disabled = true
+            }
+        }
+        
+        function updateEmailUI() {
+            const recipients = recipientsInput.value.split(',').map(s => s.trim()).filter(s => s)
+            const hasSubject = subjectInput.value.trim().length > 0
+            const hasBody = bodyInput.value.trim().length > 0
+            
+            if (recipients.length > 0 && hasSubject && hasBody) {
+                emailStatus.textContent = `Ready to send to ${recipients.length} recipient(s)`
+                emailStatus.style.color = '#10b981'
+            } else {
+                emailStatus.textContent = 'Fill in recipients, subject, and message'
+                emailStatus.style.color = '#94a3b8'
+            }
+        }
+        
+        // Initialize on page load
+        init()
+    </script>
+</body>
+</html>

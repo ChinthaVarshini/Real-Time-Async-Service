@@ -1,0 +1,22 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bun run real-gateway.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "latest",
+    "@fastify/websocket": "latest",
+    "@types/jsonwebtoken": "latest",
+    "@types/nodemailer": "^7.0.11",
+    "bullmq": "latest",
+    "dotenv": "latest",
+    "fast-check": "^4.6.0",
+    "fastify": "latest",
+    "ioredis": "latest",
+    "jsonwebtoken": "latest",
+    "nodemailer": "^8.0.4",
+    "pdfjs-dist": "^5.6.205",
+    "zod": "latest"
+  }
+}
